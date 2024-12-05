@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 interface IUser {
   id: string;
   email: string;
+  role: "Admin" | "User";
   // Add any other fields as needed
 }
 
@@ -43,4 +44,21 @@ export function verifyToken(
     (error as any).statusCode = 401;
     return next(error);
   }
+}
+
+export function verifyAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  verifyToken(req, res, () => {
+    // Assuming user data can be fetched using the user ID from the JWT token
+    const role = req.user?.role; // Assuming `req.user` contains authenticated user information
+    if (!role || role !== "Admin") {
+      res.status(401).json({
+        message: "Unauthorized. Only Admin can update wallet balance.",
+      });
+      return;
+    }
+  });
 }
