@@ -1,6 +1,10 @@
 import { Request, Response, RequestHandler } from "express";
 import User from "../../Models/User/User"; // Assuming you have a User model for accessing user data
 import Transaction from "../../Models/User/Transaction/Transaction";
+import axios from "axios";
+import jwt from "jsonwebtoken";
+import { configDotenv } from 'dotenv';
+configDotenv();
 
 // Controller for getting user dashboard data
 export const getUserDashboardData: RequestHandler = async (
@@ -28,7 +32,7 @@ export const getUserDashboardData: RequestHandler = async (
       fullname: user.fullname,
       email: user.email,
       mobile: user.mobile,
-      balance : user.walletBalance
+      balance: user.walletBalance
     };
 
     const transactions = await Transaction.find({
@@ -57,7 +61,7 @@ export const getSingleRC: RequestHandler = async (
     const { rcId } = req.params; // Assuming RC ID is provided in the request URL
 
     // Fetch RC data from the database or file system based on the rcId
-    const rcData = await getRCData(rcId); // Assuming you have a function to fetch RC data
+    const rcData = await getVehicleDetails(rcId);
 
     if (!rcData) {
       res.status(404).json({ message: "RC not found." });
@@ -96,16 +100,61 @@ export const getSingleRC: RequestHandler = async (
 // };
 
 // Helper function to fetch single RC data (you would likely query your database here)
-const getRCData = async (rcId: string) => {
-  // Replace with actual logic to fetch RC data
-  return { rcId, owner: "Raj Kamal Prabhakar", vehicle: "XYZ 1234" }; // Example
-};
+function generateUniqueInteger() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
 
-// Helper function to fetch bulk RC data (you would likely query your database here)
-// const getBulkRCData = async (startDate?: string, endDate?: string) => {
-//   // Replace with actual logic to fetch bulk RC data
-//   return [
-//     { rcId: "RC1", owner: "Raj Kamal Prabhakar", vehicle: "XYZ 1234" },
-//     { rcId: "RC2", owner: "John Doe", vehicle: "ABC 5678" },
-//   ]; // Example
-// };
+const signatureKeyString = process.env.PAYSPRINTSIGNATUREKEY || "";
+const signatureKey = Buffer.from(signatureKeyString);
+
+// Function to generate the JWT token
+const generateJwtToken = () => {
+  // Current timestamp in seconds
+  const timestamp = Math.floor(new Date().getTime() / 1000.0);
+  // console.log(timestamp, "current timestamp");
+
+  // JWT payload
+  const payload = {
+    timestamp: timestamp,      // Latest timestamp
+    partnerId: process.env.PAYSPRINTPARTNERID,    // Static partner ID
+    reqid: generateUniqueInteger()               // Unique six-digit request ID
+  };
+  // console.log(payload, "payload here");
+
+  // JWT header
+  const header = {
+    typ: "JWT",   // Type of the token
+    alg: "HS256"  // Hashing algorithm
+  };
+
+  // Sign the JWT token using HS256 and the decoded signature key, disabling the iat field
+  const token = jwt.sign(payload, signatureKey, {
+    algorithm: 'HS256',
+    header: header,
+    noTimestamp: true  // Disables the automatic inclusion of the iat field
+  });
+
+  // console.log(token, "Generated JWT token for RC verification without iat");
+  return token;
+};
+const getVehicleDetails = async (vehicleNumber: string) => {
+  const url = process.env.PAYSPRINTBASEURL!
+  const headers = {
+    "Content-Type": "application/json",
+    Token: generateJwtToken(),
+    accept: "application/json",
+    // authorisedkey: process.env.PAYSPRINTAUTHKEY,
+  };
+
+  const data = {
+    refid: generateUniqueInteger(),
+    id_number: vehicleNumber,
+  };
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

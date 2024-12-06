@@ -96,15 +96,13 @@ export const login: RequestHandler = async (
 
     const token = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.JWT_SECRET ||
-        "8210aa8984abe0307e3b2c8d9136f8d4bd7e33bd91c5f43dfb59deb59e15c46b",
+      process.env.JWT_SECRET!,
       { expiresIn: "24h" }
     );
 
     const refreshToken = jwt.sign(
       { id: user._id, email: user.email },
-      process.env.REFRESH_TOKEN_SECRET ||
-        "8844a1ab010d58da996ecf0c06c7293121bf25206cc02cd9a5257d3d2c5fa21d",
+      process.env.REFRESH_TOKEN_SECRET!,
       { expiresIn: "7d" }
     );
 
